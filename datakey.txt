@@ -1,0 +1,8 @@
+Eamonn Keogh    Ver_2_CS170_Fall_2021_Small_data__86.txt    On this dataset 86, the accuracy can be 0.95 when using only features 3 8 2
+Eamonn Keogh    Ver_2_CS170_Fall_2021_LARGE_data__27.txt    On this dataset 27, the accuracy can be 0.96 when using only features 26 27 31
+
+Alan Turing     Ver_2_CS170_Fall_2021_Small_data__61.txt    On this dataset 61, the accuracy can be 0.94 when using only features 7 4 9
+Alan Turing     Ver_2_CS170_Fall_2021_LARGE_data__22.txt    On this dataset 22, the accuracy can be 0.95 when using only features 44 6 39
+
+Ellie Cheng     Ver_2_CS170_Fall_2021_Small_data__35.txt
+Ellie Cheng     Ver_2_CS170_Fall_2021_LARGE_data__86.txt
