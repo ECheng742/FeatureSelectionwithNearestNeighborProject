@@ -8,12 +8,20 @@
 #include <sstream>
 // use std::
 
-double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyData, const std::unordered_set<double> &currentSet, double featureToAdd) {
+// method: 1 - forward selection, 2 - backward elimination
+double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyData, const std::unordered_set<double> &currentSet, double featureToConsider, int method) {
     std::vector<std::vector<double>> data = copyData;
     for (int i = 0; i < data.size(); i++) {
-        for (int j = 1; j < data[0].size(); j++) { // FIXME: does indexing for featuretoadd and data columns match up?
-            if (currentSet.find(j) == currentSet.end() && featureToAdd != j) {
-                data[i][j] = 0;
+        for (int j = 1; j < data[0].size(); j++) { // FIXME: does indexing for featureToConsider and data columns match up?
+            if (method == 1) {
+                if (currentSet.find(j) == currentSet.end() && featureToConsider != j) {
+                    data[i][j] = 0;
+                }
+            }
+            else if (method == 2) {
+                if (currentSet.find(j) == currentSet.end() || featureToConsider == j) {
+                    data[i][j] = 0;
+                }
             }
         }
     }
@@ -55,6 +63,16 @@ double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyDa
 }
 
 void featureSearch(std::vector<std::vector<double>> data) {
+    std::cout << "On the 0th level of the search tree" << std::endl;
+    std::vector<double> classSizes(2, 0);
+    double mostCommonClass = 0;
+    for (int i = 0; i < data.size(); i++) {
+        int className = data[i][0];
+        classSizes.at(className-1)++;
+    }
+    if (classSizes.at(0) >= classSizes.at(1)) mostCommonClass = 1;
+    else mostCommonClass = 2;
+    std::cout << "--Default Rate for " << mostCommonClass << ": " << classSizes.at(mostCommonClass-1)/data.size() << std::endl;
 
     std::unordered_set<double> currentSetOfFeatures;
     std::vector<double> bestSet;
@@ -68,7 +86,7 @@ void featureSearch(std::vector<std::vector<double>> data) {
 
         for (int k = 1; k < data[0].size(); k++) {
             if (currentSetOfFeatures.find(k) == currentSetOfFeatures.end()) {
-                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
+                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 1); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
                 std::cout << "--Considering adding the " << k << " feature (accuracy: " << accuracy;
                 std::cout << ", set: ";
                 for (unsigned i = 0; i < bestSet.size(); i++) std::cout << bestSet.at(i) << " ";
@@ -107,9 +125,86 @@ void featureSearch(std::vector<std::vector<double>> data) {
     std::cout << std::endl;
 }
 
+void backwardElimination(std::vector<std::vector<double>> data) {
+    std::cout << "On the 0th level of the search tree" << std::endl;
+    std::unordered_set<double> currentSetOfFeatures;
+    for (int i = 1; i < data[0].size(); i++) {
+        currentSetOfFeatures.insert(i);
+    }
+    double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, -1, 2); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
+    std::cout << "--Considering all features (accuracy: " << accuracy;
+    std::cout << ", set:";
+    if (currentSetOfFeatures.size() <= 1) std::cout << ' ';
+    for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
+            std::cout << ' ' << *it; 
+    }
+    std::cout << ")" << std::endl;
+
+    std::vector<double> bestSet;
+    int bestNumOfFeatures = data[0].size() - 1;
+    double previousLevelAccuracy = 0;
+
+    for (int i = 1; i < data[0].size(); i++) { // FIXME: indexing diff than slides
+        std::cout << "On the " << i << "th level of the search tree" << std::endl;
+        double featureToRemoveAtThisLevel;
+        double bestSoFarAccuracy = 0;
+
+        for (int k = 1; k < data[0].size(); k++) {
+            bool foundk = false;
+            for (unsigned j = 0; j < bestSet.size(); j++) {
+                if (bestSet.at(j) == k) {
+                    foundk = true;
+                    break;
+                }
+            }
+            if (!foundk) {
+                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 2); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
+                std::cout << "--Considering removing the " << k << " feature (accuracy: " << accuracy;
+                std::cout << ", set:";
+                if (currentSetOfFeatures.size() <= 1) std::cout << ' ';
+                for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
+                    if (*it != k) { 
+                        std::cout << ' ' << *it; 
+                    }
+                }
+                // for (unsigned i = 0; i < bestSet.size(); i++) std::cout << bestSet.at(i) << " ";
+                std::cout << ")" << std::endl;
+
+                if (accuracy > bestSoFarAccuracy) {
+                    bestSoFarAccuracy = accuracy;
+                    featureToRemoveAtThisLevel = k;
+                }
+            }   
+        }
+        // std::cout << "prev: " << previousLevelAccuracy << " best: " << bestSoFarAccuracy;
+        if (previousLevelAccuracy < bestSoFarAccuracy) {
+            bestNumOfFeatures--;
+            previousLevelAccuracy = bestSoFarAccuracy;
+        }
+        // std::cout << " num: " << bestNumOfFeatures << std::endl;
+        
+
+        currentSetOfFeatures.erase(featureToRemoveAtThisLevel);
+        bestSet.push_back(featureToRemoveAtThisLevel);
+        std::cout << "On level " << i << " I removed feature " << featureToRemoveAtThisLevel << " from current set" << std::endl;
+        
+        std::cout << "On level " << i << " accuracy is " << bestSoFarAccuracy << std::endl;
+    }
+
+    // std::cout << "Order of features added: ";
+    // for (auto it = bestSet.begin(); it!= bestSet.end(); ++it) {
+    //     std::cout << *it << ' ';
+    // }
+    // std::cout << std::endl;
+    std::cout << "Best Set of Features: ";
+    for (size_t i = 0; i < bestNumOfFeatures; i++) {
+        std::cout << bestSet.at(bestSet.size()-i-1) << ' ';
+    }
+    std::cout << std::endl;
+}
+
 std::vector<std::vector<double>> parseData(const std::string &filename) {
     std::vector<std::vector<double>> data;
-
     std::string line;
     double num;
 
@@ -154,7 +249,7 @@ int main() {
     std::vector<double> v7 = {1, 8, 7, 6};
     std::vector<double> v8 = {2, 2, 1, 5};
     std::vector<double> v9 = {1, 9, 7, 3};
-    std::vector<double> v10 = {1, 2, 4, 8};
+    // std::vector<double> v10 = {1, 2, 4, 8};
     d.push_back(v1);
     d.push_back(v2);
     d.push_back(v3);
@@ -168,7 +263,8 @@ int main() {
     // std::unordered_set<double> u;
     // u.insert(2);
     // leaveOneOutCrossValidation(d, u, 3);
-    featureSearch(data);
+    // featureSearch(data);
+    backwardElimination(data);
     // std::cout << "Answer Key: " << 	"Eamonn Keogh - On this dataset 86, the accuracy can be 0.95 when using only features 3 8 2" << std::endl;
 
     // Scott's large 41: 21 (0.832), 42 (0.9775), 23 (0.9635) 
