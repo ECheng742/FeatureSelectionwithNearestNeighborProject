@@ -85,4 +85,4 @@ On the 10th level of the search tree
 --Considering removing the 6 feature (accuracy: 87%, set: )
 On level 10 I removed feature 6 from current set
 On level 10 accuracy is 87%
-Best Set of Features: 6 9 
+Best Set of Features with accuracy 95.8%: 6 9 

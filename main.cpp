@@ -136,17 +136,17 @@ void featureSearchForwardSelection(std::vector<std::vector<double>> data) {
     }
 
     std::outputLogFileOut << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: {";
-    std::cout << std::endl << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: {";
+    std::cout << std::endl << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: ";
     for (size_t i = 0; i+1 < bestNumOfFeatures; i++) {
         std::outputLogFileOut << bestSet.at(i) << ',';
-        std::cout << bestSet.at(i) << ',';
+        std::cout << bestSet.at(i) << ' ';
     }
     if (bestNumOfFeatures > 0) {
         std::outputLogFileOut << bestSet.at(bestNumOfFeatures-1);
         std::cout << bestSet.at(bestNumOfFeatures-1);
     }
     std::outputLogFileOut << "}" << std::endl;
-    std::cout << "}" << std::endl;
+    std::cout << std::endl;
 
     std::dataLogFileOut << "Best Set of Features: ";
     for (size_t i = 0; i < bestNumOfFeatures; i++) {
@@ -156,6 +156,8 @@ void featureSearchForwardSelection(std::vector<std::vector<double>> data) {
 }
 
 void featureSearchBackwardElimination(std::vector<std::vector<double>> data) {
+    std::cout << "Feature Selection: Backward Elimination Algorithm" << std::endl;
+    std::cout << "Dataset Information: " << data[0].size()-1 << " features with " << data.size() << " instances" << std::endl << std::endl;
     // Using all features
     std::outputLogFileOut << "On the 0th level of the search tree" << std::endl;
     std::cout << "On the 0th level of the search tree" << std::endl;
@@ -168,16 +170,21 @@ void featureSearchBackwardElimination(std::vector<std::vector<double>> data) {
     std::outputLogFileOut << ", set:";
     std::cout << "--Considering all features (accuracy: " << accuracy * 100 << "%";
     std::cout << ", set:";
+    std::dataLogFileOut << "0 {";
     if (currentSetOfFeatures.size() <= 1) {
         std::outputLogFileOut << ' ';
         std::cout << ' ';
     }
-    for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
+    int count = 1;
+    for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it, ++count) {
         std::outputLogFileOut << ' ' << *it; 
         std::cout << ' ' << *it; 
+        std::dataLogFileOut << *it;
+        if (count < data[0].size()-1) std::dataLogFileOut << ',';
     }
     std::outputLogFileOut << ")" << std::endl;
     std::cout << ")" << std::endl;
+    std::dataLogFileOut << "} " << accuracy << std::endl;
 
     std::vector<double> bestSet;
     int bestNumOfFeatures = data[0].size() - 1;
@@ -248,8 +255,8 @@ void featureSearchBackwardElimination(std::vector<std::vector<double>> data) {
         std::dataLogFileOut << "} " << bestSoFarAccuracy << std::endl;
     }
 
-    std::outputLogFileOut << "Best Set of Features: ";
-    std::cout << "Best Set of Features: ";
+    std::outputLogFileOut << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: ";
+    std::cout << std::endl << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: ";
     for (size_t i = 0; i < bestNumOfFeatures; i++) {
         std::outputLogFileOut << bestSet.at(bestSet.size()-i-1) << ' ';
         std::cout << bestSet.at(bestSet.size()-i-1) << ' ';
