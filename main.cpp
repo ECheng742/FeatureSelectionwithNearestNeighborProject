@@ -6,30 +6,33 @@
 #include <cmath>
 #include <fstream>
 #include <sstream>
-// use std::
 
-// method: 1 - forward selection, 2 - backward elimination
+namespace std {
+    std::ofstream outputLogFileOut;
+    std::ofstream dataLogFileOut;
+}
+
 double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyData, const std::unordered_set<double> &currentSet, double featureToConsider, int method) {
+    // Create new 2D vector for dataset with irrelevant features set to 0
     std::vector<std::vector<double>> data = copyData;
     for (int i = 0; i < data.size(); i++) {
-        for (int j = 1; j < data[0].size(); j++) { // FIXME: does indexing for featureToConsider and data columns match up?
-            if (method == 1) {
-                if (currentSet.find(j) == currentSet.end() && featureToConsider != j) {
-                    data[i][j] = 0;
-                }
+        for (int j = 1; j < data[0].size(); j++) { 
+            if (method == 1) { // Forward selection
+                if (currentSet.find(j) == currentSet.end() && featureToConsider != j) data[i][j] = 0;
             }
-            else if (method == 2) {
-                if (currentSet.find(j) == currentSet.end() || featureToConsider == j) {
-                    data[i][j] = 0;
-                }
+            else if (method == 2) { // Backward elimination
+                if (currentSet.find(j) == currentSet.end() || featureToConsider == j) data[i][j] = 0;
+            }
+            else { // Error
+                return -1;
             }
         }
     }
 
+    // Calculate how many objects were correctly classified using k-fold cross validation
     double numberCorrectlyClassified = 0;
-
     for (int i = 0; i < data.size(); i++) {
-        std::vector<double> objectToClassify = data[i]; // FIXME: 1st element removal
+        std::vector<double> objectToClassify = data[i];
         double labelObjectToClassify = data[i][0];
 
         double nearestNeighborDistance = std::numeric_limits<double>::max();
@@ -38,12 +41,14 @@ double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyDa
 
         for (int k = 0; k < data.size(); k++) {
             if(k != i) {
-                // Calculate sum of squares
+                // Calculate Euclidean distance
                 double sumOfSquares = 0;
                 for (int j = 1; j < data[0].size(); j++) {
                     sumOfSquares += pow(objectToClassify[j] - data[k][j], 2);
                 }
                 double distance = sqrt(sumOfSquares);
+
+                // Update nearest neighbor if distance is smaller than current nearest neighbor
                 if (distance < nearestNeighborDistance) {
                     nearestNeighborDistance = distance;
                     nearestNeighborLocation = k;
@@ -55,14 +60,19 @@ double leaveOneOutCrossValidation(const std::vector<std::vector<double>> &copyDa
         if (labelObjectToClassify == nearestNeighborLabel) {
             numberCorrectlyClassified++;
         }
-        // std::cout << "Object " << i << " is class " << labelObjectToClassify << std::endl; // FIXME
-        // std::cout << "Its nearest neighbor is " << nearestNeighborLocation << " which is in class " << nearestNeighborLabel << std::endl; // FIXME
+        // std::cout << "Object " << i << " is class " << labelObjectToClassify << std::endl; 
+        // std::cout << "Its nearest neighbor is " << nearestNeighborLocation << " which is in class " << nearestNeighborLabel << std::endl; 
     }
     return numberCorrectlyClassified / data.size();
     // return rand() % 101;
 }
 
-void featureSearch(std::vector<std::vector<double>> data) {
+void featureSearchForwardSelection(std::vector<std::vector<double>> data) {
+    std::cout << "Feature Selection: Forward Selection Algorithm" << std::endl;
+    std::cout << "Dataset Information: " << data[0].size()-1 << " features with " << data.size() << " instances" << std::endl << std::endl;
+    
+    // Default Rate
+    std::outputLogFileOut << "On the 0th level of the search tree" << std::endl;
     std::cout << "On the 0th level of the search tree" << std::endl;
     std::vector<double> classSizes(2, 0);
     double mostCommonClass = 0;
@@ -72,79 +82,110 @@ void featureSearch(std::vector<std::vector<double>> data) {
     }
     if (classSizes.at(0) >= classSizes.at(1)) mostCommonClass = 1;
     else mostCommonClass = 2;
-    std::cout << "--Default Rate for " << mostCommonClass << ": " << classSizes.at(mostCommonClass-1)/data.size() << std::endl;
+    std::outputLogFileOut << "--Default Rate: " << classSizes.at(mostCommonClass-1)/data.size() * 100 << "%" << std::endl;
+    std::cout << "--Default Rate: " << classSizes.at(mostCommonClass-1)/data.size() * 100 << "%" << std::endl;
+    std::dataLogFileOut << "0 {} " << classSizes.at(mostCommonClass-1)/data.size() << std::endl;
 
+    // On each level, add the feature that results in highest accuracy
     std::unordered_set<double> currentSetOfFeatures;
     std::vector<double> bestSet;
     int bestNumOfFeatures = 0;
     double previousLevelAccuracy = 0;
 
-    for (int i = 1; i < data[0].size(); i++) { // FIXME: indexing diff than slides
+    for (int i = 1; i < data[0].size(); i++) { 
+        std::outputLogFileOut << "On the " << i << "th level of the search tree" << std::endl;
         std::cout << "On the " << i << "th level of the search tree" << std::endl;
         double featureToAddAtThisLevel;
         double bestSoFarAccuracy = 0;
 
         for (int k = 1; k < data[0].size(); k++) {
             if (currentSetOfFeatures.find(k) == currentSetOfFeatures.end()) {
-                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 1); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
-                std::cout << "--Considering adding the " << k << " feature (accuracy: " << accuracy;
-                std::cout << ", set: ";
-                for (unsigned i = 0; i < bestSet.size(); i++) std::cout << bestSet.at(i) << " ";
+                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 1); 
+                std::outputLogFileOut << "--Considering adding the " << k << " feature (Accuracy: " << accuracy * 100 << "%";
+                std::outputLogFileOut << ", Best set: ";
+                std::cout << "--Considering adding the " << k << " feature (Accuracy: " << accuracy * 100 << "%";
+                std::cout << ", Best set: ";
+                for (unsigned i = 0; i < bestSet.size(); i++) {
+                    std::outputLogFileOut << bestSet.at(i) << " ";
+                    std::cout << bestSet.at(i) << " ";
+                }
+                std::outputLogFileOut << k << ")" << std::endl;
                 std::cout << k << ")" << std::endl;
-
+                
                 if (accuracy > bestSoFarAccuracy) {
                     bestSoFarAccuracy = accuracy;
                     featureToAddAtThisLevel = k;
                 }
             }   
         }
-        // std::cout << "prev: " << previousLevelAccuracy << " best: " << bestSoFarAccuracy;
         if (previousLevelAccuracy < bestSoFarAccuracy) {
             bestNumOfFeatures++;
             previousLevelAccuracy = bestSoFarAccuracy;
         }
-        // std::cout << " num: " << bestNumOfFeatures << std::endl;
-        
 
         currentSetOfFeatures.insert(featureToAddAtThisLevel);
         bestSet.push_back(featureToAddAtThisLevel);
+        std::outputLogFileOut << "On level " << i << " I added feature " << featureToAddAtThisLevel << " to current set" << std::endl;
+        std::outputLogFileOut << "On level " << i << " accuracy is " << bestSoFarAccuracy * 100 << "%" << std::endl;
         std::cout << "On level " << i << " I added feature " << featureToAddAtThisLevel << " to current set" << std::endl;
-        
-        std::cout << "On level " << i << " accuracy is " << bestSoFarAccuracy << std::endl;
+        std::cout << "On level " << i << " accuracy is " << bestSoFarAccuracy * 100 << "%" << std::endl;
+
+        std::dataLogFileOut << i << " {";
+        for (size_t i = 0; i+1< bestSet.size(); i++) std::dataLogFileOut << bestSet.at(i) << ",";
+        std::dataLogFileOut << bestSet.at(bestSet.size()-1) << "} " << bestSoFarAccuracy << std::endl;
     }
 
-    // std::cout << "Order of features added: ";
-    // for (auto it = bestSet.begin(); it!= bestSet.end(); ++it) {
-    //     std::cout << *it << ' ';
-    // }
-    // std::cout << std::endl;
-    std::cout << "Best Set of Features: ";
-    for (size_t i = 0; i < bestNumOfFeatures; i++) {
-        std::cout << bestSet.at(i) << ' ';
+    std::outputLogFileOut << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: {";
+    std::cout << std::endl << "Best Set of Features with accuracy " << previousLevelAccuracy * 100 << "%: {";
+    for (size_t i = 0; i+1 < bestNumOfFeatures; i++) {
+        std::outputLogFileOut << bestSet.at(i) << ',';
+        std::cout << bestSet.at(i) << ',';
     }
-    std::cout << std::endl;
+    if (bestNumOfFeatures > 0) {
+        std::outputLogFileOut << bestSet.at(bestNumOfFeatures-1);
+        std::cout << bestSet.at(bestNumOfFeatures-1);
+    }
+    std::outputLogFileOut << "}" << std::endl;
+    std::cout << "}" << std::endl;
+
+    std::dataLogFileOut << "Best Set of Features: ";
+    for (size_t i = 0; i < bestNumOfFeatures; i++) {
+        std::dataLogFileOut << bestSet.at(i) << ' ';
+    }
+    std::dataLogFileOut << std::endl;
 }
 
-void backwardElimination(std::vector<std::vector<double>> data) {
+void featureSearchBackwardElimination(std::vector<std::vector<double>> data) {
+    // Using all features
+    std::outputLogFileOut << "On the 0th level of the search tree" << std::endl;
     std::cout << "On the 0th level of the search tree" << std::endl;
     std::unordered_set<double> currentSetOfFeatures;
     for (int i = 1; i < data[0].size(); i++) {
         currentSetOfFeatures.insert(i);
     }
-    double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, -1, 2); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
-    std::cout << "--Considering all features (accuracy: " << accuracy;
+    double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, -1, 2); 
+    std::outputLogFileOut << "--Considering all features (accuracy: " << accuracy * 100 << "%";
+    std::outputLogFileOut << ", set:";
+    std::cout << "--Considering all features (accuracy: " << accuracy * 100 << "%";
     std::cout << ", set:";
-    if (currentSetOfFeatures.size() <= 1) std::cout << ' ';
-    for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
-            std::cout << ' ' << *it; 
+    if (currentSetOfFeatures.size() <= 1) {
+        std::outputLogFileOut << ' ';
+        std::cout << ' ';
     }
+    for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
+        std::outputLogFileOut << ' ' << *it; 
+        std::cout << ' ' << *it; 
+    }
+    std::outputLogFileOut << ")" << std::endl;
     std::cout << ")" << std::endl;
 
     std::vector<double> bestSet;
     int bestNumOfFeatures = data[0].size() - 1;
     double previousLevelAccuracy = 0;
 
-    for (int i = 1; i < data[0].size(); i++) { // FIXME: indexing diff than slides
+    // On each level, remove the feature that results in highest accuracy
+    for (int i = 1; i < data[0].size(); i++) { 
+        std::outputLogFileOut << "On the " << i << "th level of the search tree" << std::endl;
         std::cout << "On the " << i << "th level of the search tree" << std::endl;
         double featureToRemoveAtThisLevel;
         double bestSoFarAccuracy = 0;
@@ -158,16 +199,22 @@ void backwardElimination(std::vector<std::vector<double>> data) {
                 }
             }
             if (!foundk) {
-                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 2); // FIXME: slides using k+1, but why doesn't match current feature being tested in line above
-                std::cout << "--Considering removing the " << k << " feature (accuracy: " << accuracy;
+                double accuracy = leaveOneOutCrossValidation(data, currentSetOfFeatures, k, 2); 
+                std::outputLogFileOut << "--Considering removing the " << k << " feature (accuracy: " << accuracy * 100 << "%";
+                std::outputLogFileOut << ", set:";
+                std::cout << "--Considering removing the " << k << " feature (accuracy: " << accuracy * 100 << "%";
                 std::cout << ", set:";
-                if (currentSetOfFeatures.size() <= 1) std::cout << ' ';
+                if (currentSetOfFeatures.size() <= 1) {
+                    std::outputLogFileOut << ' ';
+                    std::cout << ' ';
+                }
                 for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
                     if (*it != k) { 
+                        std::outputLogFileOut << ' ' << *it; 
                         std::cout << ' ' << *it; 
                     }
                 }
-                // for (unsigned i = 0; i < bestSet.size(); i++) std::cout << bestSet.at(i) << " ";
+                std::outputLogFileOut << ")" << std::endl;
                 std::cout << ")" << std::endl;
 
                 if (accuracy > bestSoFarAccuracy) {
@@ -176,31 +223,45 @@ void backwardElimination(std::vector<std::vector<double>> data) {
                 }
             }   
         }
-        // std::cout << "prev: " << previousLevelAccuracy << " best: " << bestSoFarAccuracy;
         if (previousLevelAccuracy < bestSoFarAccuracy) {
             bestNumOfFeatures--;
             previousLevelAccuracy = bestSoFarAccuracy;
-        }
-        // std::cout << " num: " << bestNumOfFeatures << std::endl;
-        
+        }        
 
         currentSetOfFeatures.erase(featureToRemoveAtThisLevel);
         bestSet.push_back(featureToRemoveAtThisLevel);
+        std::outputLogFileOut << "On level " << i << " I removed feature " << featureToRemoveAtThisLevel << " from current set" << std::endl;
+        std::outputLogFileOut << "On level " << i << " accuracy is " << bestSoFarAccuracy  * 100 << "%" << std::endl;
         std::cout << "On level " << i << " I removed feature " << featureToRemoveAtThisLevel << " from current set" << std::endl;
-        
-        std::cout << "On level " << i << " accuracy is " << bestSoFarAccuracy << std::endl;
+        std::cout << "On level " << i << " accuracy is " << bestSoFarAccuracy * 100 << "%" << std::endl;
+
+        std::vector<double> temp;
+        std::dataLogFileOut << i << " {";
+        for (auto it = currentSetOfFeatures.begin(); it != currentSetOfFeatures.end(); ++it) {
+            temp.push_back(*it);
+        }
+        if (temp.size() >= 1) {
+            for (size_t i = 0; i+1< temp.size(); i++)
+                std::dataLogFileOut << temp.at(i) << ",";
+            std::dataLogFileOut << temp.at(temp.size()-1);    
+        }
+        std::dataLogFileOut << "} " << bestSoFarAccuracy << std::endl;
     }
 
-    // std::cout << "Order of features added: ";
-    // for (auto it = bestSet.begin(); it!= bestSet.end(); ++it) {
-    //     std::cout << *it << ' ';
-    // }
-    // std::cout << std::endl;
+    std::outputLogFileOut << "Best Set of Features: ";
     std::cout << "Best Set of Features: ";
     for (size_t i = 0; i < bestNumOfFeatures; i++) {
+        std::outputLogFileOut << bestSet.at(bestSet.size()-i-1) << ' ';
         std::cout << bestSet.at(bestSet.size()-i-1) << ' ';
     }
+    std::outputLogFileOut << std::endl;
     std::cout << std::endl;
+
+    std::dataLogFileOut << "Best Set of Features: ";
+    for (size_t i = 0; i < bestNumOfFeatures; i++) {
+        std::dataLogFileOut << bestSet.at(bestSet.size()-i-1) << ' ';
+    }
+    std::dataLogFileOut << std::endl;
 }
 
 std::vector<std::vector<double>> parseData(const std::string &filename) {
@@ -210,17 +271,15 @@ std::vector<std::vector<double>> parseData(const std::string &filename) {
 
     std::ifstream fileIn;
     fileIn.open(filename);
-
     if (!fileIn.is_open()) {
         std::cout << "Error opening file: " << filename << std::endl;
         return data;
     }
-
     while(getline(fileIn, line)) {
         std::istringstream ssin;
         ssin.str(line);
         std::vector<double> row;
-        while(ssin >> num) { // FIXME: precision gets truncated
+        while(ssin >> num) { 
             row.push_back(num);
         }
         data.push_back(row);
@@ -228,45 +287,22 @@ std::vector<std::vector<double>> parseData(const std::string &filename) {
 
     fileIn.close();
     return data;
-
 }
 
 int main() {
     std::vector<std::vector<double>> data;
 
+    std::outputLogFileOut.open("output_log.txt");
+    std::dataLogFileOut.open("data_log.csv");
+
     data = parseData("Ver_2_CS170_Fall_2021_Small_data__35.txt"); 
-    
+    std::cout << "File: Ver_2_CS170_Fall_2021_Small_data__35.txt" << std::endl;
     // data = parseData("Ver_2_CS170_Fall_2021_LARGE_data__86.txt"); 
-    // data = parseData("test.txt");
+    // std::cout << "File: Ver_2_CS170_Fall_2021_LARGE_data__86.txt" << std::endl;
 
-    std::vector<std::vector<double>> d;
-    std::vector<double> v1 = {1, 7, 3, 2};
-    std::vector<double> v2 = {2, 3, 1, 3};
-    std::vector<double> v3 = {2, 2, 5, 4};
-    std::vector<double> v4 = {1, 8, 5, 9};
-    std::vector<double> v5 = {2, 2, 7, 1};
-    std::vector<double> v6 = {1, 3, 6, 4};
-    std::vector<double> v7 = {1, 8, 7, 6};
-    std::vector<double> v8 = {2, 2, 1, 5};
-    std::vector<double> v9 = {1, 9, 7, 3};
-    // std::vector<double> v10 = {1, 2, 4, 8};
-    d.push_back(v1);
-    d.push_back(v2);
-    d.push_back(v3);
-    d.push_back(v4);
-    d.push_back(v5);
-    d.push_back(v6);
-    d.push_back(v7);
-    d.push_back(v8);
-    d.push_back(v9);
-    // d.push_back(v10);
-    // std::unordered_set<double> u;
-    // u.insert(2);
-    // leaveOneOutCrossValidation(d, u, 3);
-    // featureSearch(data);
-    backwardElimination(data);
-    // std::cout << "Answer Key: " << 	"Eamonn Keogh - On this dataset 86, the accuracy can be 0.95 when using only features 3 8 2" << std::endl;
+    // featureSearchForwardSelection(data);
+    featureSearchBackwardElimination(data);
 
-    // Scott's large 41: 21 (0.832), 42 (0.9775), 23 (0.9635) 
-
+    std::outputLogFileOut.close();
+    std::dataLogFileOut.close();
 }
