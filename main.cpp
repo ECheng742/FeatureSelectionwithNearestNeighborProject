@@ -271,6 +271,7 @@ void featureSearchBackwardElimination(std::vector<std::vector<double>> data) {
     std::dataLogFileOut << std::endl;
 }
 
+// Parse dataset from file into 2D vector
 std::vector<std::vector<double>> parseData(const std::string &filename) {
     std::vector<std::vector<double>> data;
     std::string line;
